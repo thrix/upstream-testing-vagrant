@@ -7,13 +7,17 @@ Install required packages run Vagrant on Fedora
 
     sudo dnf install -y libvirt vagrant vagrant-libvirt
 
-Download the [Vangrantfile](https://github.com/bgoncalv/upstream-testing-vagrant/raw/master/Vagrantfile) to a directory where vagrant will be executed from.
+Download the [Vangrantfile](https://github.com/thrix/upstream-testing-vagrant/raw/master/Vagrantfile) to a directory where vagrant will be executed from.
 > All vagrant commands should be executed from this directory
 
 Allow libvirt to run without asking for password
 
     sudo gpasswd -a ${USER} libvirt
     newgrp libvirt
+
+## Install sshfs plugin for sharing tests/scripts folder
+
+    vagrant plugin install sshfs
 
 ## Starting VM
 Run vagrant command to start a VM, the first time might take a while to download the image.

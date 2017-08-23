@@ -1,0 +1,101 @@
+#!/bin/bash
+#
+# This script resolves dependencies of the given beakerlib test and clones
+# required libraries' git repositories from GIT_BASE_URL.
+#
+
+
+#GIT_BASE_URL="https://upstreamfirst.fedorainfracloud.org/COMPONENT.git"
+[ -z "$GIT_BASE_URL" ] && GIT_BASE_URL="https://upstreamfirst.fedorainfracloud.org/COMPONENT.git"
+[ -z "$LIBRARY_PATH" ] && LIBRARY_PATH="/libraries"
+
+# globals
+OPTS="h"
+
+#
+# helpers
+#
+
+function print_info() {
+    printf ":: %s\n" "$@"
+}
+
+function print_error() {
+    printf "Error: %s\n" "$@"
+}
+
+function exit_error() {
+    print_error "$@"
+    exit 1
+}
+
+function help() {
+cat <<EOF
+    usage: $(basename $0) [-h]
+
+    Description
+
+    Options:
+      -h         Print this help.
+EOF
+}
+
+#
+# Main
+#
+
+while getopts $OPTS OPTION
+do
+  case $OPTION in
+    h)
+        help
+        exit
+        ;;
+  esac
+done
+
+TEST=$1
+[ -z "$TEST" ] && exit_error "No test specified"
+
+ALL_DEPS=
+PROCESSED_LIBS=
+
+# $1 library name - e.g. httpd/http
+function process_library() {
+   # skip already processed beakerlib libraries
+   grep -q "$1" <<< "$PROCESSED_LIBS" && return
+   PROCESSED_LIBS="$PROCESSED_LIBS $1"
+
+   COMPONENT=${1///*}
+   LIBRARY=${1##*/}
+   GIT_REPO_BASE="${GIT_BASE_URL/COMPONENT/$COMPONENT}"
+
+   if [ ! -d $LIBRARY_PATH/$COMPONENT ]; then
+     git clone ${GIT_REPO_BASE} $LIBRARY_PATH/$COMPONENT || \
+       exit_error "Could not clone $GIT_REPO_BASE to $LIBRARY_PATH/$COMPONENT"
+   fi
+
+   resolve_deps ${LIBRARY_PATH}/$COMPONENT/Library/$LIBRARY
+}
+
+# $1 - path
+function resolve_deps() {
+  [ -f $1/Makefile ] || exit_error "Makefile not found @ $1/Makefile"
+
+  local REQUIRES=$(sed -n 's/.*Requires:[[:space:]]*\(.*\)".*/\1/p' $1/Makefile)
+  # sed -n 's/.*Requires:[[:space:]]*\(.*\)".*/\1/p' $1/Makefile
+
+  for REQ in $REQUIRES; do
+    if egrep -q "^library\(" <<< $REQ; then
+      process_library $(sed 's/library(\(.*\))/\1/' <<< $REQ)
+    else
+      ALL_DEPS="$ALL_DEPS $REQ"
+    fi
+  done
+}
+
+resolve_deps $1
+
+echo $(echo "$ALL_DEPS" | sort | uniq)
+
+# vim: ts=4 sw=4 sts=4 ft=sh et ai:
