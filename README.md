@@ -15,9 +15,16 @@ Allow libvirt to run without asking for password
     sudo gpasswd -a ${USER} libvirt
     newgrp libvirt
 
-## Install sshfs plugin for sharing tests/scripts folder
+## Install sshfs plugin for sharing tests and scripts directories
 
+Run this command to install the ssfs plugin to Vagrant.
+
+    sudo yum -y install fuse-sshfs
     vagrant plugin install sshfs
+    
+The tests directory is synchronized directly to /mnt/tests. It is expected to use this folder for the ported beakerlib tests. This way you can directly edit the tests code on you local machine.
+
+The scripts folder contains helper scripts to aid you with porting.
 
 ## Starting VM
 Run vagrant command to start a VM, the first time might take a while to download the image.
