@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# Simple script to aid porting of a beakerlib test upstream
+#
+# Author: Miroslav Vadkerti <mvadkert@redhat.com>
+#
 OPTS="h"
 
 #
@@ -22,7 +27,11 @@ function help() {
 cat <<EOF
     usage: $(basename $0) [-h]
 
-    Description
+    Simple script to aid porting of a beakerlib test upstream. Run it in the directory with your tests.
+    
+    This script does 2 things:
+    - runs safe sed commands to fix known issues for porting
+    - shows warnings related to the migration that you should fix
 
     Options:
       -h         Print this help.
