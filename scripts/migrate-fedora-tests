@@ -66,6 +66,20 @@ if [ -e "runtest.sh" ]; then
   sed -ri 's/^(\.|source) \/usr\/bin\/rhts-environment\.sh.*/\[ -e \/usr\/bin\/rhts-environment\.sh \] \&\& \. \/usr\/bin\/rhts-environment\.sh/' runtest.sh
 fi
 
+# check file for 'BZ[0-9]+' and 'Bug: [0-9]+' strings
+bz_check(){
+  if egrep -i "bz[0-9]+|Bug:\s+[0-9]+" "$1" >> /dev/null 2>&1; then
+      print_info "In file '$1' were found following mentions of Bugzilla number:"
+      egrep -i --color=auto "bz[0-9]+|Bug:\s+[0-9]+" "$1"
+      printf "\n"
+  fi
+}
+
 # warnings - inappropriate content
+printf "\n"
+for file in *
+do
+  bz_check $file
+done
 
 # vim: ts=4 sw=4 sts=4 ft=sh et ai:
