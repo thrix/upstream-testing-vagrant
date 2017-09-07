@@ -32,7 +32,7 @@ Vagrant.configure("2") do |config|
   end
 
   # sync tests folder
-  config.vm.synced_folder "tests", "/tests", type: "sshfs"
+  config.vm.synced_folder "tests", "/mnt/tests", type: "sshfs"
   config.vm.synced_folder "scripts", "/scripts", type: "sshfs"
 
   # provision script
