@@ -6,6 +6,11 @@
 # two lines, with space delimited list of components from RhtsRequires
 # and Requires.
 #
+# GIT_BASE_URL - base URL to the git repositories of compoents, the string COMPONENT
+#                is replaced with the component name
+#
+# BEAKERLIB_LIBRARY_PATH - path where the git repositories will be cloned to
+#
 # Authors:
 #  Jakub Heger <jheger@redhat.com>
 #  Martin Kyral <mkyral@redhat.com>
@@ -38,9 +43,23 @@ function exit_error() {
 
 function help() {
 cat <<EOF
-    usage: $(basename $0) [-h]
+    usage: $(basename $0) [-h] TEST_PATH
 
-    Description
+    This script resolves dependencies of the given beakerlib test and clones
+    required libraries' git repositories from GIT_BASE_URL to directory
+    specified by the BEAKER_LIBRARY_PATH. After the script finishes, it prints
+    two lines, with space delimited list of components from RhtsRequires
+    and Requires.
+
+    GIT_BASE_URL - base URL to the git repositories of compoents, the string COMPONENT
+                   is replaced with the component name
+
+    BEAKERLIB_LIBRARY_PATH - path where the git repositories will be cloned to
+
+    Authors:
+      Jakub Heger <jheger AT redhat.com>
+      Martin Kyral <mkyral AT redhat.com>
+      Miroslav Vadkerti <mvadkert AT redhat.com>
 
     Options:
       -h         Print this help.
@@ -63,7 +82,7 @@ done
 
 TEST=$1
 [ -z "$TEST" ] && exit_error "No test specified"
-[ -f $TEST/Makefile ] || exit_error "Makefile not found @ $TEST/Makefile"
+[ -f "$TEST/Makefile" ] || exit_error "Makefile not found @ $TEST/Makefile"
 
 REQUIRES_DEPS=
 RHTSREQUIRES_DEPS=
@@ -76,21 +95,26 @@ PROCESSED_LIBS=
 # $1 - library name - e.g. httpd/http
 #
 function process_library() {
-   # skip already processed beakerlib libraries
-   grep -q "$1" <<< "$PROCESSED_LIBS" && return
-   PROCESSED_LIBS="$PROCESSED_LIBS $1"
+  # skip already processed beakerlib libraries
+  grep -q "$1" <<< "$PROCESSED_LIBS" && return
+  PROCESSED_LIBS="$PROCESSED_LIBS $1"
 
    COMPONENT=${1///*}
    LIBRARY=${1##*/}
-   GIT_REPO_BASE="$GIT_BASE_URL/$COMPONENT"
+   GIT_REPO_BASE="${GIT_BASE_URL/COMPONENT/$COMPONENT}"
 
    # clone git repository if it does not exist
-   if [ ! -d $BEAKERLIB_LIBRARY_PATH/$COMPONENT ]; then
-     git clone ${GIT_REPO_BASE} $BEAKERLIB_LIBRARY_PATH/$COMPONENT 1>&2 || \
+   if [ ! -d "$BEAKERLIB_LIBRARY_PATH/$COMPONENT" ]; then
+     git clone ${GIT_REPO_BASE} "$BEAKERLIB_LIBRARY_PATH/$COMPONENT" 1>&2 || \
        exit_error "Could not clone $GIT_REPO_BASE to $BEAKERLIB_LIBRARY_PATH/$COMPONENT"
    fi
 
-   resolve_deps ${BEAKERLIB_LIBRARY_PATH}/$COMPONENT/Library/$LIBRARY
+   # check if library exists
+   if [ ! -d "${BEAKERLIB_LIBRARY_PATH}/$COMPONENT/Library/$LIBRARY" ]; then
+     exit_error "Could not find library '$1' in '${GIT_REPO_BASE}'"
+   fi
+
+   resolve_deps "${BEAKERLIB_LIBRARY_PATH}/$COMPONENT/Library/$LIBRARY"
 }
 
 #
@@ -100,28 +124,28 @@ function process_library() {
 # $1 - path to a beakerlib test
 #
 function resolve_deps() {
-  local REQUIRES=$(sed -n 's/.*\"Requires:[[:space:]]*\(.*\)".*/\1/p' $1/Makefile)
-  local RHTSREQUIRES=$(sed -n 's/.*RhtsRequires:[[:space:]]*\(.*\)".*/\1/p' $1/Makefile)
+  local REQUIRES=$(sed -n 's/.*\"Requires:[[:space:]]*\(.*\)".*/\1/p' "$1/Makefile")
+  local RHTSREQUIRES=$(sed -n 's/.*RhtsRequires:[[:space:]]*\(.*\)".*/\1/p' "$1/Makefile")
   # sed -n 's/.*Requires:[[:space:]]*\(.*\)".*/\1/p' $1/Makefile
 
   for REQ in $REQUIRES; do
-    if egrep -qv '^\$\(' <<< $REQ; then
+    if egrep -qv '^\$\(' <<< "$REQ"; then
       REQUIRES_DEPS="$REQUIRES_DEPS $REQ"
     fi
   done
 
   for RHTSREQ in $RHTSREQUIRES; do
-    if egrep -q "^library\(" <<< $RHTSREQ; then
-      process_library $(sed 's/library(\(.*\))/\1/' <<< $RHTSREQ)
-    elif egrep -qv '^\$\(' <<< $RHTSREQ; then
+    if egrep -q "^library\(" <<< "$RHTSREQ"; then
+      process_library $(sed 's/library(\(.*\))/\1/' <<< "$RHTSREQ")
+    elif egrep -qv '^\$\(' <<< "$RHTSREQ"; then
       RHTSREQUIRES_DEPS="$RHTSREQUIRES_DEPS $RHTSREQ"
     fi
   done
 }
 
-resolve_deps $TEST
+resolve_deps "$TEST"
 
 echo "$RHTSREQUIRES_DEPS" | xargs -n1 | sort | uniq | xargs
 echo "$REQUIRES_DEPS" | xargs -n1 | sort | uniq | xargs
 
-# vim: ts=4 sw=4 sts=4 ft=sh et ai:
+# vim: ts=2 sw=2 sts=2 ft=sh et ai:
