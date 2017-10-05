@@ -1,15 +1,21 @@
 #!/bin/bash
 #
-# This script resolves dependencies of the given beakerlib test and clones
-# required libraries' git repositories from GIT_BASE_URL to directory
-# specified by the BEAKER_LIBRARY_PATH. After the script finishes, it prints
-# two lines, with space delimited list of components from RhtsRequires
-# and Requires.
+# Description:
+# This script resolves dependencies of the given beakerlib libraries installed
+# in BEAKER_LIBRARY_PATH. Dependencies are resolved from Makefiles which contains
+# Requires and RhtsRequires fields specifying RPM dependencies.
 #
-# GIT_BASE_URL - base URL to the git repositories of compoents, the string COMPONENT
-#                is replaced with the component name
+# RhtsRequires are mandatory RPM requirements that need to be installed before
+# running the test.
 #
-# BEAKERLIB_LIBRARY_PATH - path where the git repositories will be cloned to
+# Requires are optional RPM requirements that the harness should try to install
+# on the system-under-test (SUT), but they are not mandatory.
+#
+# Return value:
+# After the script finishes, it prints two lines, with space delimited list
+# of components from RhtsRequires and Requires.
+#
+# BEAKERLIB_LIBRARY_PATH - path with the libraries
 #
 # Authors:
 #  Jakub Heger <jheger@redhat.com>
@@ -17,8 +23,6 @@
 #  Miroslav Vadkerti <mvadkert@redhat.com>
 #
 
-# TODO: note that we will need to have multiple GIT_BASE_URLs in the future
-[ -z "$GIT_BASE_URL" ] && GIT_BASE_URL="https://upstreamfirst.fedorainfracloud.org/COMPONENT.git"
 [ -z "$BEAKERLIB_LIBRARY_PATH" ] && BEAKERLIB_LIBRARY_PATH="/mnt/libraries"
 
 # options
@@ -45,16 +49,6 @@ function help() {
 cat <<EOF
     usage: $(basename $0) [-h] TEST_PATH
 
-    This script resolves dependencies of the given beakerlib test and clones
-    required libraries' git repositories from GIT_BASE_URL to directory
-    specified by the BEAKER_LIBRARY_PATH. After the script finishes, it prints
-    two lines, with space delimited list of components from RhtsRequires
-    and Requires.
-
-    GIT_BASE_URL - base URL to the git repositories of compoents, the string COMPONENT
-                   is replaced with the component name
-
-    BEAKERLIB_LIBRARY_PATH - path where the git repositories will be cloned to
 
     Authors:
       Jakub Heger <jheger AT redhat.com>
@@ -96,22 +90,16 @@ PROCESSED_LIBS=
 #
 function process_library() {
   # skip already processed beakerlib libraries
-  grep -q "$1" <<< "$PROCESSED_LIBS" && return
+  grep -wq "$1" <<< "$PROCESSED_LIBS" && return
   PROCESSED_LIBS="$PROCESSED_LIBS $1"
 
-   COMPONENT=${1///*}
-   LIBRARY=${1##*/}
-   GIT_REPO_BASE="${GIT_BASE_URL/COMPONENT/$COMPONENT}"
-
-   # clone git repository if it does not exist
-   if [ ! -d "$BEAKERLIB_LIBRARY_PATH/$COMPONENT" ]; then
-     git clone ${GIT_REPO_BASE} "$BEAKERLIB_LIBRARY_PATH/$COMPONENT" 1>&2 || \
-       exit_error "Could not clone $GIT_REPO_BASE to $BEAKERLIB_LIBRARY_PATH/$COMPONENT"
-   fi
+   local COMPONENT=${1///*}
+   local LIBRARY=${1##*/}
 
    # check if library exists
    if [ ! -d "${BEAKERLIB_LIBRARY_PATH}/$COMPONENT/Library/$LIBRARY" ]; then
-     exit_error "Could not find library '$1' in '${GIT_REPO_BASE}'"
+     print_error "Could not find library '$1' in '$BEAKERLIB_LIBRARY_PATH'"
+     return
    fi
 
    resolve_deps "${BEAKERLIB_LIBRARY_PATH}/$COMPONENT/Library/$LIBRARY"
@@ -145,7 +133,7 @@ function resolve_deps() {
 
 resolve_deps "$TEST"
 
-echo "$RHTSREQUIRES_DEPS" | xargs -n1 | sort | uniq | xargs
-echo "$REQUIRES_DEPS" | xargs -n1 | sort | uniq | xargs
+echo "$RHTSREQUIRES_DEPS" | xargs -n1 | sort | uniq | tr '\n' ' '
+echo "$REQUIRES_DEPS" | xargs -n1 | sort | uniq | tr '\n' ' '
 
 # vim: ts=2 sw=2 sts=2 ft=sh et ai:
