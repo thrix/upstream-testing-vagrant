@@ -38,11 +38,16 @@ Vagrant.configure("2") do |config|
   # provision script
   config.vm.provision "shell", inline: <<-SHELL
         set -x
+        # make sure we have updated system to mitigate various issues with dnf later on
+        dnf update -y --refresh
+
+        # install git
         dnf install -y git
 
-        #install ansible test runner prerequisites
+        # install ansible test runner prerequisites
         dnf install -y ansible python2-dnf libselinux-python beakerlib standard-test-roles vim
 
+        # Uncomment this if you want to use the latest standard test roles from merlin's copr
         # dnf copr enable -y merlinm/standard-test-roles
         # dnf --enablerepo=updates-testing install -y  standard-test-roles
 
