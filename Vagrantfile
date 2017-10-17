@@ -32,8 +32,8 @@ Vagrant.configure("2") do |config|
   end
 
   # sync tests folder
-  config.vm.synced_folder "tests", "/mnt/tests", type: "sshfs"
-  config.vm.synced_folder "scripts", "/scripts", type: "sshfs"
+  config.vm.synced_folder "tests", "/mnt/tests", type: "sshfs", sshfs_opts_append: "-o idmap=user,uid=0,gid=0"
+  config.vm.synced_folder "scripts", "/scripts", type: "sshfs", sshfs_opts_append: "-o idmap=user,uid=0,gid=0"
 
   # provision script
   config.vm.provision "shell", inline: <<-SHELL
